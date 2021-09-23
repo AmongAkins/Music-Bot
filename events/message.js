@@ -1,70 +1,14 @@
-/**
- *
- * @param {require("../structures/DiscordMusicBot")} client
- * @param {require("discord.js").Message} message
- * @returns {void} aka: nothing ;-;
- */
+module.exports = (client, message) => {
+    if (message.author.bot || message.channel.type === 'dm') return;
 
-module.exports = async (client, message) => {
-  if (message.author.bot || message.channel.type === "dm") return;
-  let prefix = client.botconfig.DefaultPrefix;
+    const prefix = client.config.discord.prefix;
 
-  let GuildDB = await client.GetGuild(message.guild.id);
-  if (GuildDB && GuildDB.prefix) prefix = GuildDB.prefix;
+    if (message.content.indexOf(prefix) !== 0) return;
 
-  //Initialize GuildDB
-  if (!GuildDB) {
-    await client.database.guild.set(message.guild.id, {
-      prefix: prefix,
-      DJ: null,
-    });
-    GuildDB = await client.GetGuild(message.guild.id);
-  }
+    const args = message.content.slice(prefix.length).trim().split(/ +/g);
+    const command = args.shift().toLowerCase();
 
-  //Prefixes also have mention match
-  const prefixMention = new RegExp(`^<@!?${client.user.id}> `);
-  prefix = message.content.match(prefixMention)
-    ? message.content.match(prefixMention)[0]
-    : prefix;
+    const cmd = client.commands.get(command) || client.commands.find(cmd => cmd.aliases && cmd.aliases.includes(command));
 
-  if (message.content.indexOf(prefix) !== 0) return;
-
-  const args = message.content.slice(prefix.length).trim().split(/ +/g);
-  //Making the command lowerCase because our file name will be in lowerCase
-  const command = args.shift().toLowerCase();
-
-  //Searching a command
-  const cmd =
-    client.commands.get(command) ||
-    client.commands.find((x) => x.aliases && x.aliases.includes(command));
-
-  //Executing the codes when we get the command or aliases
-  if (cmd) {
-    if (
-      (cmd.permissions &&
-        cmd.permissions.channel &&
-        !message.channel
-          .permissionsFor(client.user)
-          .has(cmd.permissions.channel)) ||
-      (cmd.permissions &&
-        cmd.permissions.member &&
-        !message.channel
-          .permissionsFor(message.member)
-          .has(cmd.permissions.member)) ||
-      (cmd.permissions &&
-        GuildDB.DJ &&
-        !message.channel
-          .permissionsFor(message.member)
-          .has(["ADMINISTRATOR"]) &&
-        !message.member.roles.cache.has(GuildDB.DJ))
-    )
-      return client.sendError(
-        message.channel,
-        "Missing Permissions!" + GuildDB.DJ
-          ? " You need the `DJ` role to access this command."
-          : ""
-      );
-    cmd.run(client, message, args, { GuildDB });
-    client.CommandsRan++;
-  } else return;
+    if (cmd) cmd.execute(client, message, args);
 };
